@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>La Misión IA Segura</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f4f9;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    #juego {
+      margin: 20px auto;
+      max-width: 700px;
+      background: white;
+      padding: 20px;
+      border-radius: 20px;
+      box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+    #canvasRobot {
+      background: #e9eef5;
+      display: block;
+      margin: 20px auto;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="juego">
+  <h1>🤖 La Misión IA Segura</h1>
+  <p>Escribe tu nombre para comenzar:</p>
+  <input type="text" id="nombre" placeholder="Tu nombre">
+  <button onclick="iniciarJuego()">Comenzar</button>
+
+  <div id="pregunta" style="display:none;">
+    <h2 id="textoPregunta"></h2>
+    <button id="op1" onclick="responder(0)"></button>
+    <button id="op2" onclick="responder(1)"></button>
+  </div>
+
+  <h3 id="resultado"></h3>
+  <h3 id="puntaje"></h3>
+
+  <canvas id="canvasRobot" width="300" height="300"></canvas>
+
+  <!-- Audio de aplausos incrustado -->
+  <audio id="aplausos">
+    <source src="data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAA... (acortado para ejemplo) ..." type="audio/mp3">
+  </audio>
+</div>
+
+<script>
+let preguntas = [
+  {
+    texto: "¿Está bien entregar un trabajo hecho por IA sin revisarlo?",
+    opciones: ["No, siempre debo revisar y aprender", "Sí, así ahorro tiempo"],
+    correcta: 0
+  },
+  {
+    texto: "¿Puedo usar la IA para hacer daño a otros?",
+    opciones: ["No, la IA se usa para el bien", "Sí, porque es divertido"],
+    correcta: 0
+  },
+  {
+    texto: "¿Es correcto usar la IA para aprender sobre animales?",
+    opciones: ["Sí, para aprender cosas nuevas", "No, eso es aburrido"],
+    correcta: 0
+  }
+];
+
+let indice = 0;
+let puntaje = 0;
+
+// Canvas robot
+const canvas = document.getElementById("canvasRobot");
+const ctx = canvas.getContext("2d");
+let angulo = 0;
+let celebrando = false;
+let salto = 0;
+
+const sonidoAplausos = document.getElementById("aplausos");
+
+function dibujarRobot() {
+  ctx.clearRect(0,0,canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2 + salto);
+  ctx.rotate(angulo);
+
+  // Cuerpo
+  ctx.fillStyle = "#8ecae6";
+  ctx.fillRect(-30, -50, 60, 80);
+
+  // Cabeza
+  ctx.fillStyle = "#219ebc";
+  ctx.fillRect(-25, -110, 50, 50);
+
+  // Ojos
+  ctx.fillStyle = "white";
+  ctx.beginPath(); ctx.arc(-10, -95, 6, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(10, -95, 6, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "black";
+  ctx.beginPath(); ctx.arc(-10, -95, 3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(10, -95, 3, 0, Math.PI*2); ctx.fill();
+
+  // Brazos
+  ctx.fillStyle = "#ffb703";
+  ctx.fillRect(-60, -40, 30, 15);
+  ctx.fillRect(30, -40, 30, 15);
+
+  // Piernas
+  ctx.fillStyle = "#fb8500";
+  ctx.fillRect(-25, 30, 15, 40);
+  ctx.fillRect(10, 30, 15, 40);
+
+  ctx.restore();
+}
+
+function animarRobot() {
+  if (celebrando) {
+    angulo += 0.1;
+    salto = Math.sin(Date.now()/100)*10;
+  } else {
+    angulo *= 0.9; // se estabiliza
+    salto *= 0.8;
+  }
+  dibujarRobot();
+  requestAnimationFrame(animarRobot);
+}
+animarRobot();
+
+function iniciarJuego() {
+  document.getElementById("pregunta").style.display = "block";
+  document.getElementById("resultado").innerText = "";
+  document.getElementById("puntaje").innerText = "Puntaje: 0";
+  indice = 0;
+  puntaje = 0;
+  mostrarPregunta();
+}
+
+function mostrarPregunta() {
+  if (indice >= preguntas.length) {
+    document.getElementById("textoPregunta").innerText = "¡Misión cumplida! 🎉";
+    document.getElementById("op1").style.display = "none";
+    document.getElementById("op2").style.display = "none";
+    return;
+  }
+  let p = preguntas[indice];
+  document.getElementById("textoPregunta").innerText = p.texto;
+  document.getElementById("op1").innerText = p.opciones[0];
+  document.getElementById("op2").innerText = p.opciones[1];
+}
+
+function responder(opcion) {
+  let p = preguntas[indice];
+  if (opcion === p.correcta) {
+    puntaje++;
+    document.getElementById("resultado").innerText = "✅ ¡Correcto!";
+    celebrando = true;
+    sonidoAplausos.currentTime = 0; // reinicia sonido
+    sonidoAplausos.play();
+    setTimeout(()=> celebrando=false, 1500);
+  } else {
+    document.getElementById("resultado").innerText = "❌ Ups, piensa de nuevo.";
+  }
+  document.getElementById("puntaje").innerText = "Puntaje: " + puntaje;
+  indice++;
+  setTimeout(mostrarPregunta, 1200);
+}
+</script>
+</body>
+</html>
