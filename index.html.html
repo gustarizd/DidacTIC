@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>La Misión IA Segura — Juego para 5°</title>
+  <style>
+    :root{
+      --bg:#f8fafc;          /* fondo claro */
+      --card:#ffffff;        /* tarjetas blancas */
+      --muted:#475569;       /* gris oscuro */
+      --text:#0f172a;        /* texto oscuro */
+      --accent:#22c55e;      /* verde */
+      --accent-2:#3b82f6;    /* azul */
+      --danger:#ef4444;      /* rojo */
+      --shadow:0 6px 18px rgba(0,0,0,.12);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Inter, Noto Sans, Arial;
+      background:var(--bg);
+      color:var(--text);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .app{width:min(980px,100%);}
+
+    .card{
+      background: var(--card);
+      border:1px solid #e2e8f0;
+      box-shadow:var(--shadow);
+      border-radius:var(--radius);
+      padding: clamp(16px, 2.5vw, 28px);
+    }
+    header{
+      display:flex; gap:14px; align-items:center; justify-content:space-between; margin-bottom:16px;
+    }
+    .brand{display:flex; gap:12px; align-items:center}
+    .avatar{width:56px; height:56px; border-radius:14px; display:grid; place-items:center; font-size:30px; background:linear-gradient(135deg, #10b981, #3b82f6); color:#fff}
+    h1{font-size:clamp(22px,3.2vw,34px); margin:0; letter-spacing:.2px}
+    p.lead{margin:.2rem 0 0; color:var(--muted)}
+
+    .screen{display:none}
+    .screen.active{display:block}
+
+    .start form{display:flex; flex-wrap:wrap; gap:12px; margin-top:14px}
+    input[type="text"]{
+      flex:1 1 280px; padding:14px 16px; border-radius:14px; border:1px solid #cbd5e1;
+      background:#f1f5f9; color:var(--text); outline:none; font-size:16px;
+    }
+    .btn{cursor:pointer; user-select:none; border:0; padding:14px 18px; border-radius:14px; font-weight:700; letter-spacing:.3px}
+    .btn-primary{background:linear-gradient(135deg, var(--accent), #16a34a); color:#fff}
+    .btn-ghost{background:#e2e8f0; color:var(--text)}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+
+    .hud{display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; margin:12px 0 18px}
+    .progress{height:12px; background:#e2e8f0; border-radius:999px; overflow:hidden}
+    .bar{height:100%; width:0%; background:linear-gradient(90deg, var(--accent-2), var(--accent)); transition:width .4s ease}
+    .stats{display:flex; gap:12px; align-items:center; font-weight:700}
+    .chip{padding:8px 12px; border-radius:999px; background:#f1f5f9}
+
+    .energy{display:flex; gap:8px; align-items:center}
+    .cell{width:22px; height:28px; border-radius:6px; border:1px solid #cbd5e1; background:#f1f5f9; position:relative; overflow:hidden}
+    .cell::after{content:""; position:absolute; inset:auto 2px 2px 2px; height:0%; background:linear-gradient(180deg, var(--accent), #15803d); border-radius:4px; transition:height .4s}
+    .cell.filled::after{height:90%}
+
+    .question{font-size:clamp(18px,2.2vw,22px); font-weight:700; margin:8px 0 10px}
+    .options{display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px}
+    .option{
+      text-align:left; padding:14px 16px; border-radius:16px; border:1px solid #cbd5e1;
+      background:#f8fafc; cursor:pointer; font-size:16px; display:flex; gap:12px; align-items:center;
+      transition: transform .06s ease, border-color .2s;
+    }
+    .option:active{transform:scale(.99)}
+    .option.correct{border-color:rgba(34,197,94,.8)}
+    .option.wrong{border-color:rgba(239,68,68,.8)}
+    .option[aria-disabled="true"]{opacity:.7; cursor:not-allowed}
+
+    .feedback{min-height:38px; margin-top:6px; font-weight:700}
+    .feedback.ok{color:var(--accent)}
+    .feedback.bad{color:var(--danger)}
+
+    .controls{display:flex; gap:10px; margin-top:10px}
+
+    .final{
+      display:grid; gap:14px; text-align:center; padding:14px; border:1px dashed #cbd5e1;
+      border-radius:16px; background:#f8fafc
+    }
+    .big{font-size:clamp(20px,2.6vw,28px); font-weight:800}
+    .tagline{color:var(--muted)}
+
+    .confetti{position:fixed; inset:0; pointer-events:none; overflow:hidden}
+    .piece{position:absolute; width:10px; height:14px; opacity:.9}
+
+    /* Contenedor del robot 3D */
+    .robot3d{width:min(220px, 70vw); height:min(220px, 70vw); margin:12px auto; display:none}
+    .robot3d.show{display:block}
+
+    @media (min-width:740px){
+      .options{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <header>
+        <div class="brand">
+          <div class="avatar" aria-hidden="true">🤖</div>
+          <div>
+            <h1>La Misión IA Segura</h1>
+            <p class="lead">Ayuda a <strong>IAmi</strong> a usar la inteligencia artificial de forma correcta, ética y segura.</p>
+          </div>
+        </div>
+        <div class="energy" aria-label="Energía de IAmi">
+          <div class="cell" id="c0"></div>
+          <div class="cell" id="c1"></div>
+          <div class="cell" id="c2"></div>
+          <div class="cell" id="c3"></div>
+          <div class="cell" id="c4"></div>
+          <div class="cell" id="c5"></div>
+        </div>
+      </header>
+
+      <section class="screen start active" id="screen-start">
+        <p>Escribe tu nombre, presiona <em>Comenzar</em> y responde una sola vez por pregunta. ¡Gana energía con cada buena decisión! ⚡</p>
+        <form id="start-form">
+          <input id="player" autocomplete="off" maxlength="18" placeholder="Tu nombre" required />
+          <button class="btn btn-primary" type="submit">Comenzar</button>
+        </form>
+      </section>
+
+      <section class="screen game" id="screen-game" aria-live="polite">
+        <div class="hud">
+          <div class="progress" aria-label="Progreso">
+            <div class="bar" id="bar"></div>
+          </div>
+          <div class="stats">
+            <div class="chip" id="who">Jugador</div>
+            <div class="chip">Puntos: <span id="score">0</span></div>
+            <div class="chip">Pregunta <span id="step">1</span>/6</div>
+          </div>
+        </div>
+
+        <div id="qwrap">
+          <div class="question" id="qtext">…</div>
+          <div class="options" id="options"></div>
+          <div class="feedback" id="feedback"></div>
+          <div id="robotMount" class="robot3d"></div>
+          <div class="controls">
+            <button class="btn btn-primary" id="next" disabled>Siguiente</button>
+            <button class="btn btn-ghost" id="once" disabled>1 intento ✓</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen end" id="screen-end">
+        <div class="final">
+          <div class="big" id="final-title">¡Bien hecho!</div>
+          <p class="tagline" id="final-msg">Has ayudado a IAmi.</p>
+          <p id="final-tip"><strong>Consejo:</strong> La IA es una ayuda, pero tú eres quien aprende.</p>
+          <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:6px">
+            <button class="btn btn-primary" id="download">Descargar resultados</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <!-- Three.js desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+    // ====== Preguntas (lenguaje sencillo) ======
+    const QUESTIONS = [
+      {q:"Encuentro una tarea hecha por IA y quiero entregarla sin leerla. ¿Está bien?", options:["No. Debo leer y aprender, la tarea es mía.","Sí. Así ahorro tiempo."], correct:0, why:"La IA te ayuda, pero tú necesitas entender. ¡Revisa y aprende!"},
+      {q:"Quiero preguntarle a la IA algo para hacer daño a otra persona. ¿Es correcto?", options:["No. Usamos la IA para el bien y el respeto.","Sí. Si es broma, no pasa nada."], correct:0, why:"La IA se usa con respeto. Nunca para lastimar."},
+      {q:"Uso IA para buscar datos de animales y aprender más. ¿Es buen uso?", options:["Sí. Investigar y aprender es un buen uso.","No. La IA no sirve para estudiar."], correct:0, why:"La IA puede darte ideas, ejemplos y explicaciones."},
+      {q:"La IA me da una respuesta que parece rara. ¿Qué hago?", options:["Reviso en otra fuente o pregunto al profe.","La copio igual, sin revisar."], correct:0, why:"A veces la IA se equivoca. Verifica siempre."},
+      {q:"Voy a compartir mi dirección y mi teléfono con la IA. ¿Es seguro?", options:["No. Mis datos personales son privados.","Sí. A la IA le gusta saberlo todo."], correct:0, why:"Cuida tu seguridad: no compartas datos personales."},
+      {q:"La IA me ayuda a escribir una carta. ¿Qué debo hacer al final?", options:["Leer, corregir y poner mis propias ideas.","Enviar sin leer, porque la IA sabe."], correct:0, why:"Mejora el texto con tu voz y revisa errores."}
+    ];
+
+    // ====== Estado y elementos ======
+    const state = { name:"", step:0, score:0, locked:false, answered:false };
+    const $ = sel => document.querySelector(sel);
+
+    const startForm = $('#start-form');
+    const playerInput = $('#player');
+
+    const who=$('#who'),scoreEl=$('#score'),stepEl=$('#step'),bar=$('#bar');
+    const qtext=$('#qtext'),opts=$('#options'),feedback=$('#feedback');
+    const nextBtn=$('#next'),onceBtn=$('#once');
+
+    const finalTitle=$('#final-title'),finalMsg=$('#final-msg'),finalTip=$('#final-tip'),downloadBtn=$('#download');
+    const confetti=$('#confetti');
+
+    const robotMount = document.getElementById('robotMount');
+
+    // ====== Robot 3D con Three.js (modelo geométrico simple) ======
+    let renderer, scene, camera, robot, armR, armL, head;
+    let celebrateUntil = 0;
+    let animId;
+
+    function initRobot(){
+      // Si ya existe, no volver a crear
+      if(renderer) return;
+      const W = robotMount.clientWidth;
+      const H = robotMount.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.background = null; // transparente
+
+      camera = new THREE.PerspectiveCamera(45, W/H, 0.1, 100);
+      camera.position.set(2.2, 1.8, 3.6);
+
+      renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      robotMount.appendChild(renderer.domElement);
+
+      const light = new THREE.AmbientLight(0xffffff, 0.7); scene.add(light);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(3,4,5); scene.add(dir);
+
+      // Grupo robot
+      robot = new THREE.Group();
+      scene.add(robot);
+
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness:0.3, roughness:0.4 });
+      const limbMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, metalness:0.2, roughness:0.6 });
+      const detailMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness:0.0, roughness:0.9 });
+
+      // Cuerpo
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1,1.2,0.6), bodyMat);
+      robot.add(body);
+
+      // Cabeza
+      head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 32, 32), bodyMat);
+      head.position.set(0, 0.95, 0);
+      robot.add(head);
+
+      // Ojos
+      const eyeGeom = new THREE.SphereGeometry(0.05, 16, 16);
+      const eyeL = new THREE.Mesh(eyeGeom, detailMat); eyeL.position.set(-0.12, 0.05, 0.34);
+      const eyeR = new THREE.Mesh(eyeGeom, detailMat); eyeR.position.set( 0.12, 0.05, 0.34);
+      head.add(eyeL); head.add(eyeR);
+
+      // Brazos
+      armL = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.9,16), limbMat);
+      armL.position.set(-0.65, 0.1, 0);
+      armL.rotation.z = Math.PI/12;
+      robot.add(armL);
+
+      armR = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.9,16), limbMat);
+      armR.position.set(0.65, 0.1, 0);
+      armR.rotation.z = -Math.PI/12;
+      robot.add(armR);
+
+      // Piernas
+      const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,1.0,16), limbMat);
+      legL.position.set(-0.25, -1.1, 0);
+      const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,1.0,16), limbMat);
+      legR.position.set(0.25, -1.1, 0);
+      robot.add(legL); robot.add(legR);
+
+      robot.position.y = 0.6;
+
+      window.addEventListener('resize', onResize);
+      animate();
+    }
+
+    function onResize(){
+      if(!renderer) return;
+      const W = robotMount.clientWidth;
+      const H = robotMount.clientHeight;
+      renderer.setSize(W, H);
+      camera.aspect = W/H; camera.updateProjectionMatrix();
+    }
+
+    function animate(){
+      animId = requestAnimationFrame(animate);
+
+      // Oscilación suave de la cabeza
+      if(head) head.rotation.y += 0.01;
+
+      // Celebración: mano derecha arriba y pequeño giro
+      const now = performance.now();
+      if(now < celebrateUntil){
+        const t = (celebrateUntil - now) / 1500; // 1.5s
+        if(armR){ armR.rotation.z = -Math.PI/12 - Math.sin((1-t)*Math.PI*4)*0.9; }
+        if(robot){ robot.rotation.y = Math.sin((1-t)*Math.PI*2) * 0.3; }
+      }else{
+        if(armR) armR.rotation.z = -Math.PI/12;
+        if(robot) robot.rotation.y *= 0.9;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function showRobotCelebration(){
+      robotMount.classList.add('show');
+      initRobot();
+      celebrateUntil = performance.now() + 1500; // 1.5s de celebración
+    }
+
+    function hideRobot(){
+      robotMount.classList.remove('show');
+    }
+
+    // ====== Lógica del juego ======
+    function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.querySelector(id).classList.add('active');}
+
+    function start(name){
+      state.name=name||'Jugador';
+      state.step=0; state.score=0; state.locked=false; state.answered=false;
+      who.textContent=state.name; scoreEl.textContent=0; stepEl.textContent=1; bar.style.width='0%';
+      feedback.textContent=''; nextBtn.disabled=true; onceBtn.disabled=true;
+      document.querySelectorAll('.cell').forEach(c=>c.classList.remove('filled'));
+      hideRobot();
+      show('#screen-game');
+      renderQuestion();
+    }
+
+    function renderQuestion(){
+      const d=QUESTIONS[state.step];
+      qtext.textContent=d.q;
+      opts.innerHTML='';
+      d.options.forEach((t,i)=>{
+        const b=document.createElement('button');
+        b.className='option'; b.type='button'; b.setAttribute('data-idx',i);
+        b.innerHTML=`<span>${i===0?'✅':'❌'}</span> <span>${t}</span>`;
+        b.addEventListener('click',onChoose);
+        opts.appendChild(b);
+      });
+      feedback.textContent='Elige una opción.';
+      onceBtn.disabled=true; nextBtn.disabled=true; state.locked=false; state.answered=false;
+      updateHUD();
+    }
+
+    function updateHUD(){
+      bar.style.width=(state.step/QUESTIONS.length*100)+'%';
+      stepEl.textContent=state.step+1;
+      scoreEl.textContent=state.score;
+    }
+
+    function onChoose(e){
+      if(state.locked) return; // un solo intento
+      const i=+e.currentTarget.getAttribute('data-idx');
+      const d=QUESTIONS[state.step];
+      const correct=i===d.correct;
+      state.locked=true; state.answered=true; onceBtn.disabled=false;
+
+      document.querySelectorAll('.option').forEach((b,j)=>{
+        b.setAttribute('aria-disabled','true');
+        if(j===d.correct) b.classList.add('correct');
+        if(j===i && !correct) b.classList.add('wrong');
+      });
+
+      if(correct){
+        state.score+=10; feedback.textContent='¡Correcto! '+d.why; feedback.className='feedback ok';
+        fillEnergy(state.step); burstConfetti(); showRobotCelebration();
+      } else {
+        feedback.textContent='No es correcto. '+d.why; feedback.className='feedback bad'; hideRobot();
+      }
+
+      nextBtn.disabled=false; updateHUD();
+    }
+
+    function fillEnergy(i){ const c=document.getElementById('c'+i); if(c) c.classList.add('filled'); }
+
+    function next(){
+      if(!state.answered) return;
+      state.step++; feedback.textContent=''; hideRobot();
+      if(state.step<QUESTIONS.length){ renderQuestion(); }
+      else { finish(); }
+    }
+
+    function finish(){
+      const total=QUESTIONS.length*10; const pct=Math.round(state.score/total*100);
+      finalTitle.textContent=`¡Misión completada, ${state.name}!`;
+      finalMsg.textContent=`Puntaje: ${state.score}/${total} (${pct}%).`;
+      finalTip.innerHTML = "<strong>Consejo:</strong> Usa siempre la IA para aprender, no para copiar.";
+      show('#screen-end');
+      if(pct>=70){ for(let i=0;i<2;i++) setTimeout(burstConfetti, i*300); }
+    }
+
+    function downloadResults(){
+      const total=QUESTIONS.length*10; const pct=Math.round(state.score/total*100);
+      const lines=['La Misión IA Segura — Resultados','Estudiante: '+state.name,'Puntaje: '+state.score+' / '+total+' ('+pct+'%)',''];
+      QUESTIONS.forEach((q,i)=>{lines.push(`${i+1}. ${q.q}`); lines.push(`✔ Correcta: ${q.options[q.correct]}`);});
+      const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=`Mision-IA-Segura-${state.name}.txt`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    }
+
+    // ====== Confeti simple ======
+    function burstConfetti(){
+      const colors=['#60a5fa','#22c55e','#eab308','#f472b6','#f97316','#a78bfa'];
+      for(let i=0;i<24;i++){
+        const d=document.createElement('div');
+        d.className='piece';
+        d.style.left=(50+(Math.random()*20-10))+'vw';
+        d.style.top='10vh';
+        d.style.background=colors[Math.floor(Math.random()*colors.length)];
+        d.style.transform=`rotate(${Math.random()*360}deg)`;
+        d.style.opacity=0.95;
+        confetti.appendChild(d);
+        const dx=(Math.random()*100-50);
+        const dy=70+Math.random()*40;
+        const rot=360+Math.random()*360;
+        d.animate([
+          {transform:`translate(0,0) rotate(0deg)`, opacity:1},
+          {transform:`translate(${dx}vw, ${dy}vh) rotate(${rot}deg)`, opacity:0}
+        ], {duration: 1200 + Math.random()*600, easing:'cubic-bezier(.2,.8,.2,1)'}).onfinish=()=> d.remove();
+      }
+    }
+
+    // ====== Eventos ======
+    startForm.addEventListener('submit',(e)=>{ e.preventDefault(); const name=playerInput.value.trim(); if(!name){playerInput.focus();return;} start(name); });
+    nextBtn.addEventListener('click', next);
+    downloadBtn.addEventListener('click', downloadResults);
+  </script>
+</body>
+</html>
